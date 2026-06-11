@@ -12,7 +12,8 @@ class BaseDados:
 
     def _inicializar_dados(self):
         dados = self.storage.carregar()
-        self.current_semester = dados.get("semestre_atual", "")
+        
+        self.current_semester = str(dados.get("semestre_atual", "")).strip()
         
         semestres_dict = dados.get("semestres", {})
 
@@ -20,10 +21,15 @@ class BaseDados:
             semestres_dict = {}
 
         for id_semestre, cadeiras_dict in semestres_dict.items():
+            id_semestre = str(id_semestre).strip()
+            if not id_semestre:
+                continue
+                
             novo_semestre = Semestre(id_semestre)
             
             if isinstance(cadeiras_dict, dict):
                 for nome, info in cadeiras_dict.items():
+                    nome = str(nome).strip().upper() 
                     try:
                         if not isinstance(info, dict):
                             raise TypeError("Estrutura interna da cadeira corrompida.")
@@ -36,6 +42,9 @@ class BaseDados:
                         print(f"⚠️ AVISO: A cadeira '{nome}' no semestre '{id_semestre}' contém dados inválidos e foi ignorada.")
                         
             self.semesters[id_semestre] = novo_semestre
+
+        if self.current_semester and self.current_semester not in self.semesters:
+            self.semesters[self.current_semester] = Semestre(self.current_semester)
 
 
     def salvar_estado(self):
@@ -97,6 +106,20 @@ class BaseDados:
                     raise ValueError("Erro de I/O: A falta não pôde ser salva com segurança no disco. Operação revertida.")
         return False
 
+
+    def excluir_cadeira(self, nome_cadeira):
+        if self.current_semester in self.semesters:
+            semestre_ativo = self.semesters[self.current_semester]
+            if nome_cadeira in semestre_ativo.cadeiras:
+                cadeira_removida = semestre_ativo.cadeiras.pop(nome_cadeira)
+                
+                try:
+                    self.salvar_estado()
+                    return True
+                except IOError:
+                    semestre_ativo.cadeiras[nome_cadeira] = cadeira_removida
+                    raise ValueError("Erro de I/O: Não foi possível excluir no disco. Operação revertida.")
+        return False
 
     def obter_cadeiras_do_semestre(self):
         if self.current_semester in self.semesters:

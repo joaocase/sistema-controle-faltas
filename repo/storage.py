@@ -43,5 +43,8 @@ class StorageJSON:
         except Exception as e:
             print(f"\n❌ ERRO CRÍTICO NO SISTEMA DE ARQUIVOS: Não foi possível salvar ({e})")
             if os.path.exists(arquivo_temporario):
-                os.remove(arquivo_temporario)
+                try:
+                    os.remove(arquivo_temporario)
+                except Exception:
+                    pass 
             return False

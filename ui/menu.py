@@ -26,8 +26,9 @@ class MenuConsole:
                 print("1. Ver resumo de faltas")
                 print("2. Lançar nova falta")
                 print("3. Cadastrar nova cadeira")
-                print("4. Mudar de semestre / Iniciar novo")
-                print("5. Sair")
+                print("4. Excluir cadeira")
+                print("5. Mudar de semestre / Iniciar novo")
+                print("6. Sair")
                 
                 opcao = input("Opção: ").strip()
                 
@@ -38,8 +39,10 @@ class MenuConsole:
                 elif opcao == '3':
                     self._cadastrar_cadeira()
                 elif opcao == '4':
-                    self._mudar_semestre()
+                    self._excluir_cadeira()
                 elif opcao == '5':
+                    self._mudar_semestre()
+                elif opcao == '6':
                     print("\n👋 Encerrando...")
                     break
                 else:
@@ -68,34 +71,34 @@ class MenuConsole:
         if not cadeiras:
             return print("\n❌ Cadastre uma cadeira primeiro.")
 
-        print("\nSelecione a cadeira:")
+        print("\nSelecione a cadeira (Será computada a falta do dia inteiro/4h):")
         for i, c in enumerate(cadeiras, 1):
             print(f"{i}. {c.nome}")
         
         entrada_idx = input("Número da cadeira: ").strip()
         if not entrada_idx.isdigit():
-            return print("❌ Entrada inválida. Digite apenas o número da cadeira.")
+            return print("❌ Entrada inválida. Digite apenas o número.")
             
         idx = int(entrada_idx) - 1
         if not (0 <= idx < len(cadeiras)):
             return print("❌ Erro: Número de cadeira inexistente na lista.")
 
-        nome_cadeira_alvo = cadeiras[idx].nome
+        cadeira_alvo = cadeiras[idx]
 
-        if input("Faltou o dia todo (4h)? (s/n): ").strip().lower() == 's':
-            horas = 4
-        else:
-            entrada_horas = input("Quantas horas avulsas? ").strip()
-            if not entrada_horas.isdigit():
-                return print("❌ Entrada inválida. Digite apenas números inteiros.")
-            horas = int(entrada_horas)
-            
-        if horas <= 0:
-            return print("❌ Quantidade inválida. Insira um valor maior que zero.")
+        nome_cadeira = cadeira_alvo.nome
+
+        horas = cadeira_alvo.HORAS_POR_DIA 
 
         try:
-            if self.bd.registrar_falta(nome_cadeira_alvo, horas):
-                print("✅ Falta registrada com sucesso!")
+            if self.bd.registrar_falta(nome_cadeira, horas):
+                print(f"✅ Falta registrada! (+{horas}h adicionadas em {nome_cadeira})")
+
+                print("-" * 40)
+                print(f"📊 NOVO STATUS: {cadeira_alvo.obter_status()}")
+                if cadeira_alvo.horas_restantes >= 0:
+                    print(f"⏳ Saldo restante: Você ainda pode faltar {cadeira_alvo.horas_restantes}h antes de reprovar.")
+                print("-" * 40)
+
             else:
                 print("❌ Erro: Cadeira não encontrada no banco de dados.")
         except ValueError as e:
@@ -103,7 +106,7 @@ class MenuConsole:
 
 
     def _cadastrar_cadeira(self):
-        nome = input("\nNome da Cadeira: ").strip()
+        nome = input("\nNome da Cadeira: ").strip().upper()
         
         if not nome:
             return print("❌ O nome da cadeira não pode ser vazio.")
@@ -124,6 +127,38 @@ class MenuConsole:
                 print("❌ Cadeira já existe neste semestre.")
         except ValueError as e:
             print(f"❌ Erro de Regra de Negócio: {e}")
+
+
+    def _excluir_cadeira(self):
+        cadeiras = self.bd.obter_cadeiras_do_semestre()
+        if not cadeiras:
+            return print("\n❌ Nenhuma cadeira para excluir.")
+
+        print("\nSelecione a cadeira que deseja EXCLUIR:")
+        for i, c in enumerate(cadeiras, 1):
+            print(f"{i}. {c.nome}")
+        
+        entrada_idx = input("Número da cadeira para deletar: ").strip()
+        if not entrada_idx.isdigit():
+            return print("❌ Entrada inválida. Digite apenas o número.")
+            
+        idx = int(entrada_idx) - 1
+        if not (0 <= idx < len(cadeiras)):
+            return print("❌ Erro: Número inexistente na lista.")
+
+        nome_cadeira = cadeiras[idx].nome
+        confirmacao = input(f"⚠️ Tem certeza que deseja apagar a cadeira '{nome_cadeira}' e todo o seu histórico? (s/n): ").strip().lower()
+        
+        if confirmacao == 's':
+            try:
+                if self.bd.excluir_cadeira(nome_cadeira):
+                    print(f"✅ Cadeira '{nome_cadeira}' excluída com sucesso!")
+                else:
+                    print("❌ Erro ao tentar excluir a cadeira.")
+            except ValueError as e:
+                print(f"❌ ERRO DE SISTEMA: {e}")
+        else:
+            print("✅ Operação cancelada. A cadeira foi mantida.")
 
 
     def _mudar_semestre(self):
